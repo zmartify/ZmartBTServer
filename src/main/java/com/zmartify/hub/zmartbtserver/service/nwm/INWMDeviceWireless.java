@@ -5,8 +5,16 @@ package com.zmartify.hub.zmartbtserver.service.nwm;
 
 import java.util.List;
 
+import org.freedesktop.NetworkManager;
+import org.freedesktop.NetworkManager.Settings;
+import org.freedesktop.Properties;
 import org.freedesktop.dbus.DBusInterface;
+import org.freedesktop.dbus.Path;
 import org.freedesktop.dbus.UInt32;
+import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.exceptions.DBusExecutionException;
+
+import com.zmartify.hub.zmartbtserver.service.nwm.NWMClass.NMDeviceWifiCapabilities;
 
 /**
  * @author Peter Kristensen
@@ -15,14 +23,15 @@ import org.freedesktop.dbus.UInt32;
 public interface INWMDeviceWireless {
 
 	/**
-	 * @throws Exception
+	 * @throws DBusException 
+	 * @throws DBusExecutionException 
 	 */
-	void startup() throws Exception;
+	void startup() throws DBusExecutionException, DBusException;
 
 	/**
-	 * @throws Exception
+	 * @throws DBusException 
 	 */
-	void shutdown() throws Exception;
+	void shutdown() throws DBusException;
 
 	String getHwAddress();
 
@@ -32,9 +41,47 @@ public interface INWMDeviceWireless {
 
 	UInt32 getBitrate();
 
-	List<DBusInterface> getAccessPoints();
+	List<Path> getAccessPoints();
 
-	DBusInterface getActiveAccessPoint();
+	List<ZmartAccessPoint> getAPs();
+
+	Path getActiveAccessPoint();
 
 	UInt32 getWirelessCapabilities();
+
+	/**
+	 * @return
+	 */
+	List<NMDeviceWifiCapabilities> getWirelessCapabilitiesEnums();
+
+	/**
+	 * @param objectPath
+	 * @return
+	 */
+	ZmartAccessPoint getAP(String objectPath);
+
+	/**
+	 * @return
+	 */
+	NetworkManager.Device.Wireless getDeviceWireless();
+
+	/**
+	 * @return
+	 */
+	Settings getNWMSettings();
+
+	/**
+	 * @return
+	 */
+	Properties getNWMProperties();
+
+	/**
+	 * @return
+	 */
+	List<DBusInterface> getAllAccessPoints();
+
+	/**
+	 * @return
+	 */
+	String getDeviceWirelessObjectPath();
 }

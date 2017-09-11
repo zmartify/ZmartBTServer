@@ -21,17 +21,35 @@ public class NWMConstants {
 	/**
 	 * The NetworkManager DBus interface for AccessPoints.
 	 */
-	public static final String NWM_ACCESSPOINT_INTERFACE = "org.freedesktop.NetworkManager.AccessPoint";
+	static final String NWM_ACCESSPOINT_INTERFACE = "org.freedesktop.NetworkManager.AccessPoint";
+	
+	static final String NWM_ACCESSPOINT_SSID = "Ssid";
+	static final String NWM_ACCESSPOINT_STRENGTH = "Strength";
+	static final String NWM_ACCESSPOINT_LASTSEEN = "LastSeen";
+	static final String NWM_ACCESSPOINT_HWADDRESS = "HwAddress";
+	static final String NWM_ACCESSPOINT_FLAGS = "Flags";
+	static final String NWM_ACCESSPOINT_FREQUENCY = "Frequency";
+	static final String NWM_ACCESSPOINT_MAXBITRATE = "MaxBitRate";
+	static final String NWM_ACCESSPOINT_MODE = "Mode";
+	static final String NWM_ACCESSPOINT_RSNFLAGS = "RsnFlags";
+	static final String NWM_ACCESSPOINT_WPAFLAGS = "WpaFlags";
+
+	/**
+	 * The NetworkManager DBus interface for Connection.
+	 */
+	static final String NWM_CONNECTION_INTERFACE = "org.freedesktop.NetworkManager.Settings.Connection";
+	
+	static final String NWM_CONNECTION_UNSAVED = "Unsaved";
 
 	/**
 	 * The NetworkManager DBus interface for Device.
 	 */
-	public static final String NWM_DEVICE_INTERFACE = "org.freedesktop.NetworkManager.Device";
+	static final String NWM_DEVICE_INTERFACE = "org.freedesktop.NetworkManager.Device";
 
 	/**
 	 * The NetworkManager DBus interface for Device.Wireless.
 	 */
-	public static final String NWM_DEVICEWIRELESS_INTERFACE = "org.freedesktop.NetworkManager.Device.Wireless";
+	static final String NWM_DEVICEWIRELESS_INTERFACE = "org.freedesktop.NetworkManager.Device.Wireless";
 	
 	static final String NWM_PROPERTY_DEVICES = "Devices";
 	static final String NWM_PROPERTY_ALLDEVICES = "AllDevices";

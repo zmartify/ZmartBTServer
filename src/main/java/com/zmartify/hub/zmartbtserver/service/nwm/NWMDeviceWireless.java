@@ -8,14 +8,25 @@ import org.freedesktop.Properties;
 import org.freedesktop.dbus.DBusConnection;
 import org.freedesktop.dbus.DBusInterface;
 import org.freedesktop.dbus.DBusSigHandler;
+import org.freedesktop.dbus.Path;
 import org.freedesktop.dbus.UInt32;
 import org.freedesktop.dbus.Variant;
+import org.freedesktop.dbus.exceptions.DBusException;
+import org.freedesktop.dbus.exceptions.DBusExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zmartify.hub.zmartbtserver.service.nwm.NWMClass.NMDeviceWifiCapabilities;
+
 import static com.zmartify.hub.zmartbtserver.service.nwm.NWMConstants.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Peter Kristensen
@@ -29,9 +40,13 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 
 	private Properties nwmDeviceWirelessProperties;
 
+	private NetworkManager.Settings nwmDeviceWirelessSettings;
+
 	private String deviceWirelessObjectPath;
 
 	private INWMProvider nwmProvider;
+
+	private ObjectMapper jsonMapper;
 
 	/**
 	 * The signal handlers for Device.Wireless.
@@ -50,22 +65,32 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 	public NWMDeviceWireless(INWMProvider nwmProvider, String deviceWirelessObjectPath) {
 		this.nwmProvider = nwmProvider;
 		this.deviceWirelessObjectPath = deviceWirelessObjectPath;
+		this.jsonMapper = this.nwmProvider.getJsonMapper();
+
+		DBusConnection dbusConnection = nwmProvider.getDbusConnection();
+
+		try {
+			nwmDeviceWireless = (NetworkManager.Device.Wireless) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
+					deviceWirelessObjectPath, NetworkManager.Device.Wireless.class);
+
+			log.debug("Got device '{}'", nwmDeviceWireless);
+
+			nwmDeviceWirelessProperties = getProperties(deviceWirelessObjectPath);
+			log.debug("Got deviceWireless.Properties '{}'", nwmDeviceWirelessProperties);
+
+			nwmDeviceWirelessSettings = getSettings(deviceWirelessObjectPath);
+
+			log.debug("Got deviceWireless.Settings '{}'", nwmDeviceWirelessSettings);
+
+		} catch (DBusException e) {
+			log.error("Error construction deviceWireless");
+		}
+
 	}
 
 	@Override
-	public void startup() throws Exception {
+	public void startup() throws DBusExecutionException, DBusException {
 		DBusConnection dbusConnection = nwmProvider.getDbusConnection();
-
-		nwmDeviceWireless = (NetworkManager.Device.Wireless) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
-				deviceWirelessObjectPath, NetworkManager.Device.Wireless.class);
-
-		log.debug("Got device '{}'", nwmDeviceWireless);
-
-		nwmDeviceWirelessProperties = (Properties) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
-				deviceWirelessObjectPath, Properties.class);
-
-		log.debug("Got deviceWireless.Properties '{}'", nwmDeviceWirelessProperties);
-
 		/*
 		 * Setting up PropertiesChanged signal handler
 		 */
@@ -127,7 +152,7 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 	}
 
 	@Override
-	public void shutdown() throws Exception {
+	public void shutdown() throws DBusException {
 		nwmProvider.getDbusConnection().removeSigHandler(NetworkManager.Device.Wireless.PropertiesChanged.class,
 				propertiesChangedSignalHandler);
 		nwmProvider.getDbusConnection().removeSigHandler(NetworkManager.Device.Wireless.AccessPointAdded.class,
@@ -205,6 +230,34 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 		new Thread(run).start();
 	}
 
+	private Properties getProperties(String objectPath) throws DBusException {
+		return nwmProvider.getDbusConnection().getRemoteObject(DBUS_NETWORKMANAGER, objectPath, Properties.class);
+	}
+
+	@Override
+	public String getDeviceWirelessObjectPath() {
+		return deviceWirelessObjectPath;
+	}
+
+	private NetworkManager.Settings getSettings(String objectPath) throws DBusException {
+		return nwmProvider.getDbusConnection().getRemoteObject(DBUS_NETWORKMANAGER, objectPath,
+				NetworkManager.Settings.class);
+	}
+
+	public NetworkManager.Device.Wireless getDeviceWireless() {
+		return nwmDeviceWireless;
+	}
+
+	@Override
+	public NetworkManager.Settings getNWMSettings() {
+		return nwmDeviceWirelessSettings;
+	}
+
+	@Override
+	public Properties getNWMProperties() {
+		return nwmDeviceWirelessProperties;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -260,10 +313,31 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 	 * ()
 	 */
 	@Override
-	public List<DBusInterface> getAccessPoints() {
-		Variant<List<DBusInterface>> value = nwmDeviceWirelessProperties.Get(NWM_DEVICEWIRELESS_INTERFACE,
-				"AccessPoints");
-		return value.getValue();
+	public List<DBusInterface> getAllAccessPoints() {
+		return nwmDeviceWireless.GetAllAccessPoints();
+	}
+
+	@Override
+	public ZmartAccessPoint getAP(String objectPath) {
+		try {
+			return new ZmartAccessPoint(objectPath, getProperties(objectPath).GetAll(NWM_ACCESSPOINT_INTERFACE));
+		} catch (DBusException e) {
+			log.error("Error getting AP (AccessPoint)");
+			return null;
+		}
+
+	}
+
+	/*
+	 * Loop through devices and set up the wireless Device
+	 */
+	@Override
+	public List<ZmartAccessPoint> getAPs() {
+		List<ZmartAccessPoint> aps = new ArrayList<ZmartAccessPoint>();
+		getAllAccessPoints().forEach(ap -> {
+			aps.add(getAP(ap.getObjectPath()));
+		});
+		return aps;
 	}
 
 	/*
@@ -273,8 +347,8 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 	 * getActiveAccessPoint()
 	 */
 	@Override
-	public DBusInterface getActiveAccessPoint() {
-		Variant<DBusInterface> value = nwmDeviceWirelessProperties.Get(NWM_DEVICEWIRELESS_INTERFACE, "Capabilities");
+	public Path getActiveAccessPoint() {
+		Variant<Path> value = nwmDeviceWirelessProperties.Get(NWM_DEVICEWIRELESS_INTERFACE, "ActiveAccessPoint");
 		return value.getValue();
 	}
 
@@ -286,8 +360,32 @@ public class NWMDeviceWireless implements INWMDeviceWireless {
 	 */
 	@Override
 	public UInt32 getWirelessCapabilities() {
-		Variant<UInt32> value = nwmDeviceWirelessProperties.Get(NWM_DEVICEWIRELESS_INTERFACE, "Capabilities");
+		Variant<UInt32> value = nwmDeviceWirelessProperties.Get(NWM_DEVICEWIRELESS_INTERFACE, "WirelessCapabilities");
 		return value.getValue();
+	}
+
+	@Override
+	public List<NMDeviceWifiCapabilities> getWirelessCapabilitiesEnums() {
+		List<NMDeviceWifiCapabilities> ret = new ArrayList<NMDeviceWifiCapabilities>();
+		UInt32 value = getWirelessCapabilities();
+		for (NMDeviceWifiCapabilities wifiCap : NMDeviceWifiCapabilities.values()) {
+			if (wifiCap.isSet(value))
+				ret.add(wifiCap);
+		}
+		return ret;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * com.zmartify.hub.zmartbtserver.service.nwm.INWMDeviceWireless#getAccessPoints
+	 * ()
+	 */
+	@Override
+	public List<Path> getAccessPoints() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	/*

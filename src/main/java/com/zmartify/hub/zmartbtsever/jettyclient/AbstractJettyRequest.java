@@ -7,6 +7,7 @@ import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpURI;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -20,12 +21,15 @@ abstract public class AbstractJettyRequest implements IJettyRequest {
 
 	protected String reqId;
 	protected HttpMethod method;
+
+	@JsonProperty("url")
 	protected HttpURI uri;
 
 	@JsonSerialize(using = HeadersSerializer.class)
 	@JsonDeserialize(using = HeadersDeserializer.class)
-	protected HttpFields headers;
+	protected HttpFields headers = new HttpFields();
 	
+	@JsonProperty("result")
 	protected JsonNode body;
 
 	public AbstractJettyRequest() {

@@ -5,6 +5,7 @@ package com.zmartify.hub.zmartbtserver.service.nwm;
 
 import static com.zmartify.hub.zmartbtserver.service.nwm.NWMConstants.*;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Map.Entry;
 import org.freedesktop.DBus;
 import org.freedesktop.NetworkManager;
 import org.freedesktop.ObjectManager;
+import org.freedesktop.Pair;
 import org.freedesktop.Properties;
 import org.freedesktop.dbus.DBusConnection;
 import org.freedesktop.dbus.DBusInterface;
@@ -24,13 +26,18 @@ import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.zmartify.hub.zmartbtserver.service.nwm.NWMClass.NMDeviceType;
+import com.zmartify.hub.zmartbtserver.utils.VariantSerializer;
+
 /**
  * @author Peter Kristensen
  *
  */
 public class NWMProvider implements INWMProvider {
 
-	private static final Logger log = LoggerFactory.getLogger(NWMProvider.class);
+	private final static Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
 	/**
 	 * The DBus connection used to talk to the Bluez service.
@@ -48,6 +55,9 @@ public class NWMProvider implements INWMProvider {
 
 	private NetworkManager.Settings nwmSettings;
 
+	private INWMDeviceWireless nwmWireless = null;
+
+	private ObjectMapper jsonMapper;
 	/**
 	 * The DBus signal handler for the ObjectManager's InterfacesAdded signal.
 	 */
@@ -64,11 +74,14 @@ public class NWMProvider implements INWMProvider {
 	private String nwmDbusBusName;
 
 	public NWMProvider() {
-
+		jsonMapper = new ObjectMapper();
+		SimpleModule module = new SimpleModule();
+		module.addSerializer(new VariantSerializer(Variant.class));
+		jsonMapper.registerModule(module);
 	}
 
 	@Override
-	public void startup() throws Exception {
+	public void startup() throws DBusException {
 
 		dbusConnection = DBusConnection.getConnection(DBusConnection.SYSTEM);
 
@@ -78,12 +91,11 @@ public class NWMProvider implements INWMProvider {
 
 		nwmObjectManager = (ObjectManager) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
 				"/org/freedesktop/NetworkManager", ObjectManager.class);
-/*
-		for (Entry<DBusInterface, Map<String, Map<String, Variant<?>>>> object : nwmObjectManager.GetManagedObjects()
-				.entrySet()) {
-			log.info("Object: {}", object.getKey().getObjectPath());
-		}
-*/
+		/*
+		 * for (Entry<DBusInterface, Map<String, Map<String, Variant<?>>>> object :
+		 * nwmObjectManager.GetManagedObjects() .entrySet()) { log.info("Object: {}",
+		 * object.getKey().getObjectPath()); }
+		 */
 		nwmNetworkManager = dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER, "/org/freedesktop/NetworkManager",
 				NetworkManager.class);
 
@@ -114,35 +126,47 @@ public class NWMProvider implements INWMProvider {
 		dbusConnection.addSigHandler(ObjectManager.InterfacesRemoved.class, nwmDbusBusName, nwmObjectManager,
 				interfacesRemovedSignalHandler);
 
+		/*
+		 * Loop through devices and set up the wireless Device
+		 */
+		for (DBusInterface device : getAllDevices()) {
+			Properties deviceProperties = (Properties) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
+					device.getObjectPath(), Properties.class);
+			Variant<UInt32> deviceType = deviceProperties.Get(NWM_DEVICE_INTERFACE, "DeviceType");
+
+			if (NMDeviceType.NM_DEVICE_TYPE_WIFI.equals(deviceType.getValue())) {
+				nwmWireless = new NWMDeviceWireless(this, device.getObjectPath());
+				nwmWireless.startup();
+				break;
+			}
+		}
+
+		if (nwmWireless == null)
+			log.error("No wireless device found");
+
+		log.debug("NWM Provider started.");
 	}
 
 	@Override
-	public void shutdown() throws Exception {
+	public void shutdown() throws DBusException {
+		if (nwmWireless != null) {
+			nwmWireless.shutdown();
+			nwmWireless = null;
+		}
+
 		dbusConnection.removeSigHandler(ObjectManager.InterfacesAdded.class, interfacesAddedSignalHandler);
 		dbusConnection.removeSigHandler(ObjectManager.InterfacesRemoved.class, interfacesRemovedSignalHandler);
 
 		dbusConnection.disconnect();
+		log.debug("NWM Provider shutdown.");
 	}
 
 	public List<DBusInterface> listAccessPoints() throws Exception {
-		List<DBusInterface> accessPoints = new ArrayList<DBusInterface>();
-		for (DBusInterface device : nwmNetworkManager.GetAllDevices()) {
-			try {
-				org.freedesktop.NetworkManager.Device.Wireless wifi = dbusConnection.getRemoteObject(
-						DBUS_NETWORKMANAGER, device.getObjectPath(),
-						org.freedesktop.NetworkManager.Device.Wireless.class);
-				accessPoints.addAll(wifi.GetAllAccessPoints());
-			} catch (org.freedesktop.dbus.exceptions.DBusExecutionException e) {
-				// Unable to retrieve Wireless information from this device,
-				// skip to the next one
-			}
-		}
-		return accessPoints;
+		return nwmWireless.getDeviceWireless().GetAllAccessPoints();
 	}
 
 	@Override
 	public List<String> listDevicesWireless() throws Exception {
-
 		return getObjectsByInterface(NWM_DEVICEWIRELESS_INTERFACE);
 	}
 
@@ -177,6 +201,11 @@ public class NWMProvider implements INWMProvider {
 		return dbusConnection;
 	}
 
+	@Override
+	public ObjectMapper getJsonMapper() {
+		return jsonMapper;
+	}
+
 	/**
 	 * Get the unique DBus bus name for the NetworkManager service.
 	 * 
@@ -187,27 +216,46 @@ public class NWMProvider implements INWMProvider {
 		return nwmDbusBusName;
 	}
 
+	@Override
+	public NetworkManager getNetWorkManager() {
+		return nwmNetworkManager;
+	}
+
+	@Override
+	public NetworkManager.Settings getNWMSettings() {
+		return nwmSettings;
+	}
+
+	@Override
+	public INWMDeviceWireless getWireless() {
+		return nwmWireless;
+	}
+
 	public void printManagedObjects() {
 		log.info(nwmObjectManager.GetManagedObjects().toString());
 	}
-	
 
+	@Override
 	public List<DBusInterface> listConnections() {
 		return (List<DBusInterface>) nwmSettings.ListConnections();
 	}
 
+	@Override
 	public boolean reloadConnections() {
 		return (boolean) nwmSettings.ReloadConnections();
 	}
 
+	@Override
 	public DBusInterface addConnection(Map<String, Map<String, Variant<?>>> connection) {
 		return (DBusInterface) nwmSettings.AddConnection(connection);
 	}
 
+	@Override
 	public void saveHostname(String hostname) {
 		nwmSettings.SaveHostname(hostname);
 	}
 
+	@Override
 	public Map<String, Map<String, Variant<?>>> getConnectionSettings(String objectPath) {
 		NetworkManager.Settings.Connection nwmSettingsConnection;
 		try {
@@ -220,10 +268,12 @@ public class NWMProvider implements INWMProvider {
 		return (Map<String, Map<String, Variant<?>>>) nwmSettingsConnection.GetSettings();
 	}
 
+	@Override
 	public DBusInterface getConnectionByUUID(String uuid) {
 		return (DBusInterface) nwmSettings.GetConnectionByUuid(uuid);
 	}
 
+	@Override
 	public DBusInterface addConnectionUnSaved(Map<String, Map<String, Variant<?>>> connection) {
 		return (DBusInterface) nwmSettings.AddConnectionUnsaved(connection);
 	}
@@ -247,10 +297,12 @@ public class NWMProvider implements INWMProvider {
 	@Override
 	public List<DBusInterface> getAllDevices() {
 		return nwmNetworkManager.GetAllDevices();
-//		Variant<List<DBusInterface>> value = nwmProperties.Get(NWM_INTERFACE, NWM_PROPERTY_ALLDEVICES);
+		// Variant<List<DBusInterface>> value = nwmProperties.Get(NWM_INTERFACE,
+		// NWM_PROPERTY_ALLDEVICES);
 	}
-	
-	public Map<String,Variant<?>> getDeviceProperties(Path devicePath) {
+
+	@Override
+	public Map<String, Variant<?>> getDeviceProperties(Path devicePath) {
 		return nwmProperties.GetAll(devicePath.getPath());
 	}
 
@@ -478,6 +530,21 @@ public class NWMProvider implements INWMProvider {
 	public void setGlobalDnsConfiguration(Map<String, Variant<?>> configuration) {
 		nwmProperties.Set(NWM_INTERFACE, NWM_PROPERTY_WIMAXENABLED,
 				new Variant<Map<String, Variant<?>>>(configuration));
+	}
+
+	@Override
+	public Pair<DBusInterface, DBusInterface> connectToAP(String objectPath, String password) throws Exception {
+		NWMAccessPoint accessPoint = new NWMAccessPoint(this, objectPath);
+		accessPoint.startup();
+		String ssid = accessPoint.getSsidAsString();
+		log.info("Ssid: {} - Password {}", ssid, password);
+		DefaultWifiConnection connection = new DefaultWifiConnection(ssid, password);
+
+		Pair<DBusInterface, DBusInterface> result = nwmNetworkManager.AddAndActivateConnection(connection.get(),
+				nwmWireless.getDeviceWireless(), accessPoint.getAccessPoint());
+		accessPoint.shutdown();
+		Thread.sleep(20000);
+		return result;
 	}
 
 }

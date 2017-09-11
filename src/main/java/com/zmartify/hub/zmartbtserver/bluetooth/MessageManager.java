@@ -1,29 +1,65 @@
 package com.zmartify.hub.zmartbtserver.bluetooth;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zmartify.hub.zmartbtserver.hubclient.HubClient;
+import com.zmartify.hub.zmartbtserver.unixclient.UnixClient;
 import com.zmartify.hub.zmartbtsever.jettyclient.JettyClient;
+import com.zmartify.hub.zmartbtsever.jettyclient.JettyRequest;
 
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 
+/**
+ * Receives all messages from the message queue and dispatches them to
+ * the various clients (i.e. service providers)
+ * 
+ * Clients are responsible for sending any response back via
+ * the subscribed 'MessageListener (sendQueue)'
+ * 
+ * @author Peter Kristensen
+ *
+ */
 public class MessageManager {
 	private static final Logger log = LoggerFactory.getLogger(MessageManager.class);
 
 	private AtomicInteger receivedMessages = new AtomicInteger(0);
 
+	private ObjectMapper jsonMapper = new ObjectMapper();
+
 	protected MessageListener subscriber = null;
 
 	protected JettyClient jettyClient = new JettyClient();
-
-	protected static ISendMessage sendMessage;
+	protected UnixClient unixClient = new UnixClient();
+	protected HubClient hubClient = new HubClient();
 
 	protected transient boolean running = false;
 
 	public MessageManager() {
+	}
+
+	public void startup() {
+		jettyClient.startup();
+		unixClient.startup();
+		hubClient.startup();
+	}
+
+	public void shutdown() {
+		hubClient.shutdown();
+		unixClient.shutdown();
+		jettyClient.shutdown();
+	}
+
+	public void register(MessageListener listener) {
+		this.subscriber = listener;
+		jettyClient.register(listener);
+		unixClient.register(listener);
+		hubClient.register(listener);
 	}
 
 	public Observer<Message> messageListener() {
@@ -36,36 +72,43 @@ public class MessageManager {
 
 			@Override
 			public void onComplete() {
-				// TODO Auto-generated method stub
+				log.debug("onComplete");
 			}
 
 			@Override
 			public void onError(Throwable arg0) {
-				// TODO Auto-generated method stub
+				log.debug("onError");
 			}
 
 			@Override
 			public void onNext(Message message) {
-				// TODO Auto-generated method stub
-				log.debug("We got a message (" + receivedMessages.incrementAndGet() + ") : " + message.toString()
+
+				log.info("We got a message (" + receivedMessages.incrementAndGet() + ") : " + message.toString()
 						+ " : " + new String(message.getPayload()));
 
-				String test = "{ \"uri\": \"http://192.168.2.130:8080/rest\", \"method\": \"GET\","
-						+ " \"headers\": { \"AUTHORIZATION\": \"Basic test\" , \"CONTENT-TYPE\": \"application/json\" }, "
-						+ " \"body\": { \"test\": [ \"ABC\", \"DEF\" ], \"AUTHORIZATION\": \"Basic test\" , \"CONTENT-TYPE\": \"application/json\" } }";
+				JettyRequest request;
+				try {
+					request = jsonMapper.readValue(message.getPayload(), JettyRequest.class);
 
-				message.setPayload(test);
+					log.info("MM: \n{}\n", jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(request));
 
-				for (int i = 0; i < 10; i++)
-					jettyClient.handleRequest(message);
+					switch (request.getUri().getHost()) {
+					case "snap": // Snap daemon
+						unixClient.handleRequest(request);
+						break;
+					case "zmarthub":
+						hubClient.handleRequest(request);
+						break;
+					default:
+						jettyClient.handleRequest(request);
+					}
+
+				} catch (IOException e) {
+					log.error("Error parsing message - skipped! :: {}", e.getMessage());
+				}
+
 			}
 
 		};
-	}
-
-	public void register(MessageListener listener) {
-		this.subscriber = listener;
-		sendMessage = new SendMessage(subscriber);
-		jettyClient.register(listener);
 	}
 }

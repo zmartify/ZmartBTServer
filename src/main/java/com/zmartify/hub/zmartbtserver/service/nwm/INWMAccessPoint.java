@@ -5,6 +5,8 @@ package com.zmartify.hub.zmartbtserver.service.nwm;
 
 import java.util.Map;
 
+import org.freedesktop.NetworkManager.AccessPoint;
+import org.freedesktop.NetworkManager.Settings;
 import org.freedesktop.dbus.UInt32;
 import org.freedesktop.dbus.Variant;
 
@@ -14,36 +16,51 @@ import org.freedesktop.dbus.Variant;
  */
 public interface INWMAccessPoint {
 
-byte[] getSsid();
+	byte[] getSsid();
 
-byte getStrength();
+	byte getStrength();
 
-short getLastSeen();
+	short getLastSeen();
 
-String getHwAddress();
+	String getHwAddress();
 
-UInt32 getFlags();
+	UInt32 getFlags();
 
-UInt32 getFrequency();
+	UInt32 getFrequency();
 
-UInt32 getMaxBitRate();
+	UInt32 getMaxBitRate();
 
-UInt32 getMode();
+	UInt32 getMode();
 
-UInt32 getRsnFlags();
+	UInt32 getRsnFlags();
 
-UInt32 getWpaFlags();
+	UInt32 getWpaFlags();
 
-Map<String,Variant<?>> getAll();
+	Map<String, Variant<?>> getAll();
 
-/**
- * @throws Exception
- */
-void startup() throws Exception;
+	/**
+	 * @throws Exception
+	 */
+	void startup() throws Exception;
 
-/**
- * @throws Exception
- */
-void shutdown() throws Exception;
+	/**
+	 * @throws Exception
+	 */
+	void shutdown() throws Exception;
+
+	/**
+	 * @return
+	 */
+	Settings getSettings();
+
+	/**
+	 * @return
+	 */
+	AccessPoint getAccessPoint();
+
+	/**
+	 * @return
+	 */
+	String getAccessPointObjectPath();
 
 }

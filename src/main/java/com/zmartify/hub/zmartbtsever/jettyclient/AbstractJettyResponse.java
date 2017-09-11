@@ -21,6 +21,10 @@ abstract public class AbstractJettyResponse extends AbstractJettyRequest impleme
 	@JsonProperty("status")
 	protected String statusText;
 
+	// Async or Sync requests
+	@JsonProperty("type")
+	protected String reqType;
+
 	public AbstractJettyResponse() {
 		super();
 	}
@@ -28,7 +32,7 @@ abstract public class AbstractJettyResponse extends AbstractJettyRequest impleme
 	public void setHeaders(HttpFields headers) {
 		this.headers = headers;
 	}
-	
+
 	public void setBody(JsonNode body) {
 		this.body = body;
 	}
@@ -47,5 +51,12 @@ abstract public class AbstractJettyResponse extends AbstractJettyRequest impleme
 
 	public void setStatusText(String statusText) {
 		this.statusText = statusText;
+	}
+
+	public void setUbuntuResponse(JsonNode jsonResponse) {
+		this.reqType = jsonResponse.get("type").asText();
+		this.statusCode = jsonResponse.get("status-code").asInt();
+		this.statusText = jsonResponse.get("status").asText();
+		this.body = jsonResponse.get("result");
 	}
 }

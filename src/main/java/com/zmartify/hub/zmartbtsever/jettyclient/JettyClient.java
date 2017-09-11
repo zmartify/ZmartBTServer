@@ -1,7 +1,5 @@
 package com.zmartify.hub.zmartbtsever.jettyclient;
 
-import static com.zmartify.hub.zmartbtserver.ZmartBTServerClass.*;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -14,10 +12,9 @@ import org.eclipse.jetty.util.BufferUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zmartify.hub.zmartbtserver.IStandardClient;
 import com.zmartify.hub.zmartbtserver.bluetooth.Message;
 import com.zmartify.hub.zmartbtserver.bluetooth.MessageListener;
 
@@ -25,7 +22,7 @@ import com.zmartify.hub.zmartbtserver.bluetooth.MessageListener;
  * @author Peter Kristensen
  *
  */
-public class JettyClient {
+public class JettyClient implements IStandardClient {
 
 	/*
 	 * Logger for this class
@@ -46,7 +43,7 @@ public class JettyClient {
 	/*
 	 * Controls if headers should be part of the response
 	 */
-	private static final boolean SEND_HEADER = false;
+	// private static final boolean SEND_HEADER = false;
 
 	/*
 	 * This hashmap holds HTTP requests to local openHAB which are currently running
@@ -77,6 +74,27 @@ public class JettyClient {
 		} catch (Exception e) {
 			log.error("Error starting Jetty Client");
 		}
+	}
+
+	public void startup() {
+		try {
+			jettyClient.start();
+			log.info("Jetty Client started..");
+		} catch (Exception e) {
+			log.error("Error starting Jetty Client");
+		}
+	}
+
+	public void shutdown() {
+		if (jettyClient.isStarted()) {
+			try {
+				jettyClient.stop();
+				log.info("Jetty Client shutdown..");
+			} catch (Exception e) {
+				log.error("Error stopping Jetty Client");
+			}
+		}
+
 	}
 
 	private void sendErrorMessage(JettyResponse jettyResponse, int errorCode, String reason) {
@@ -120,11 +138,10 @@ public class JettyClient {
 		}
 	}
 
-	public void handleRequest(Message message) {
+	public void handleRequest(JettyRequest jettyRequest) {
 
 		try {
-			JettyRequest jettyRequest = jsonMapper.readValue(message.getPayload(), JettyRequest.class);
-
+			log.info("Jetty handling request");
 			// If no reqId specified, we create one
 			if (jettyRequest.getReqId() == null)
 				jettyRequest.setReqId(UUID.randomUUID().toString());
@@ -164,13 +181,6 @@ public class JettyClient {
 					});
 		} catch (URISyntaxException e) {
 			log.error("URI syntax error '{}' - request skipped.");
-		} catch (JsonParseException e) {
-			log.error("Message -> JSON Parse Exception");
-		} catch (JsonMappingException e) {
-			log.error("Message -> JSON Mapping Exception");
-		} catch (IOException e) {
-			log.error("IO Exception :: {}", e.getMessage());
-			e.printStackTrace();
 		}
 	}
 

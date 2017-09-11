@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.intel.bluetooth.BluetoothConsts;
-import com.zmartify.hub.zmartbtsever.jettyclient.JettyClient;
+import com.zmartify.hub.zmartbtserver.service.bluetooth.bluez5.BluezBluetoothProvider;
 
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
@@ -75,6 +75,8 @@ public class ZmartBTRfcommServer implements Runnable {
 
 	private BluetoothAcceptThread acceptThread = null;
 
+	private BluezBluetoothProvider bluetoothProvider = new BluezBluetoothProvider();
+
 	private BluetoothConnection connection = null;
 	private MessageReceiver<Message> messageReceiver;
 	private MessageSender messageSender;
@@ -123,6 +125,14 @@ public class ZmartBTRfcommServer implements Runnable {
 
 		acceptThread = new BluetoothAcceptThread(BluetoothConsts.RFCOMM_PROTOCOL_UUID);
 		acceptThread.start();
+
+		messageManager.startup();
+		try {
+			bluetoothProvider.startup();
+		} catch (Exception e) {
+			log.error("Error starting BluetoothProvider");
+		}
+
 		log.debug("Start listening for bluetooth clients...");
 		listening = true;
 	}
@@ -147,6 +157,16 @@ public class ZmartBTRfcommServer implements Runnable {
 
 		$receiver.connect().dispose();
 		$receiver.subscribe().dispose();
+
+		messageManager.shutdown();
+		try {
+			bluetoothProvider.shutdown();
+		} catch (Exception e) {
+			log.error("Error stopping BluetoothProvider.");
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		listening = false;
 
 	}
@@ -204,7 +224,7 @@ public class ZmartBTRfcommServer implements Runnable {
 				service = (StreamConnectionNotifier) Connector.open(url, Connector.READ_WRITE);
 				streamConnectionNotifier = service;
 			} catch (IOException e) {
-				log.error("Could not listen to RFCOMM {} :: {}", e.getMessage(), e);
+				log.error("Could not listen to RFCOMM :: {}", e.getMessage());
 				started = false;
 				throw new RuntimeException("Handle listen() failure");
 			}

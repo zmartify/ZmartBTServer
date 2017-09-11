@@ -1,6 +1,5 @@
 package com.zmartify.hub.zmartbtserver.bluetooth;
 
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,15 +7,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import static com.zmartify.hub.zmartbtserver.ZmartBTServerClass.*;
 
 public class Message {
 
 	// private static final Logger log = LoggerFactory.getLogger(Message.class);
-	
+
 	private static final short BITINDEX_CONTAINSPAYLOAD = 0;
 	private static final short BITINDEX_ISCHUNKMESSAGE = 1;
 
@@ -46,7 +42,7 @@ public class Message {
 	/*
 	 * A list of constructor to ease construction of messages from various objects
 	 */
-	
+
 	public Message(byte[] rawPayload) {
 		super();
 		ByteBuffer byteBuffer = ByteBuffer.wrap(rawPayload).order(BYTE_ORDER);
@@ -233,7 +229,7 @@ public class Message {
 	public void setPayload(String payload) {
 		setPayload(payload.getBytes());
 	}
-	
+
 	/**
 	 * Applies all data from the message schema except the payload, which has to be
 	 * set afterwards by setPayload(), to this instance. The payload's length is set

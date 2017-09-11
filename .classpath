@@ -60,5 +60,6 @@
 			<attribute name="maven.scope" value="compile"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="jarlib/juds-0.94.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

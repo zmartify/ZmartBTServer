@@ -3,6 +3,8 @@
  */
 package com.zmartify.hub.zmartbtsever.jettyclient;
 
+import org.eclipse.jetty.http.HttpFields;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
@@ -21,6 +23,7 @@ public class JettyResponse extends AbstractJettyResponse {
 		super();
 		this.reqId = jettyRequest.getReqId();
 		this.method = jettyRequest.getMethod();
+		this.headers = new HttpFields();
 		// this.uri = jettyRequest.getUri();
 	}
 }

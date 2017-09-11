@@ -3,6 +3,12 @@
  */
 package com.zmartify.hub.zmartbtserver.service.nwm;
 
+import java.util.Map;
+
+import org.freedesktop.NetworkManager.Settings;
+import org.freedesktop.NetworkManager.Settings.Connection;
+import org.freedesktop.dbus.Variant;
+
 /**
  * @author Peter Kristensen
  *
@@ -19,4 +25,25 @@ public interface INWMConnection {
 	 */
 	void shutdown() throws Exception;
 
+	boolean getUnsaved();
+
+	/**
+	 * @return
+	 */
+	Settings getSettings();
+
+	/**
+	 * @return
+	 */
+	Connection getConnection();
+
+	/**
+	 * @return
+	 */
+	Map<String, Variant<?>> getAll();
+
+	/**
+	 * @return
+	 */
+	String getConnectionObjectPath();
 }

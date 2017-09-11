@@ -199,8 +199,7 @@ public class MessageReceiver<T> {
 	}
 
 	/**
-	 * Consumes the connection's byte stream and deserializes BlaubotMessages from
-	 * it.
+	 * Consumes the connection's byte stream and deserializes Messages from it.
 	 */
 	class MessageReceivingThread extends Thread {
 		/**

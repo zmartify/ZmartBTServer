@@ -12,6 +12,7 @@ import org.freedesktop.dbus.DBusConnection;
 import org.freedesktop.dbus.DBusSigHandler;
 import org.freedesktop.dbus.UInt32;
 import org.freedesktop.dbus.Variant;
+import org.freedesktop.dbus.exceptions.DBusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,8 @@ public class NWMAccessPoint implements INWMAccessPoint {
 
 	private Properties nwmAccessPointProperties;
 
+	private NetworkManager.Settings nwmAccessPointSettings;
+
 	private String accessPointObjectPath;
 
 	private INWMProvider nwmProvider;
@@ -37,17 +40,6 @@ public class NWMAccessPoint implements INWMAccessPoint {
 	 * The signal handler for changing properties.
 	 */
 	private DBusSigHandler<Properties.PropertiesChanged> propertiesChangedSignalHandler;
-
-	private static final String NWM_ACCESSPOINT_SSID = "Ssid";
-	private static final String NWM_ACCESSPOINT_STRENGTH = "Strength";
-	private static final String NWM_ACCESSPOINT_LASTSEEN = "LastSeen";
-	private static final String NWM_ACCESSPOINT_HWADDRESS = "HwAddress";
-	private static final String NWM_ACCESSPOINT_FLAGS = "Flags";
-	private static final String NWM_ACCESSPOINT_FREQUENCY = "Frequency";
-	private static final String NWM_ACCESSPOINT_MAXBITRATE = "MaxBitRate";
-	private static final String NWM_ACCESSPOINT_MODE = "Mode";
-	private static final String NWM_ACCESSPOINT_RSNFLAGS = "RsnFlags";
-	private static final String NWM_ACCESSPOINT_WPAFLAGS = "WpaFlags";
 
 	/**
 	 * Construct a new AccessPoint
@@ -58,21 +50,31 @@ public class NWMAccessPoint implements INWMAccessPoint {
 	public NWMAccessPoint(INWMProvider nwmProvider, String accessPointObjectPath) {
 		this.nwmProvider = nwmProvider;
 		this.accessPointObjectPath = accessPointObjectPath;
+
+		DBusConnection dbusConnection = this.nwmProvider.getDbusConnection();
+
+		try {
+
+			nwmAccessPoint = (AccessPoint) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER, accessPointObjectPath,
+					AccessPoint.class);
+			log.info("Got accessPoint '{}'", nwmAccessPoint);
+
+			nwmAccessPointProperties = dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER, accessPointObjectPath,
+					Properties.class);
+			log.info("Got accessPoint.Properties '{}'", nwmAccessPointProperties);
+
+			nwmAccessPointSettings = dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER, accessPointObjectPath,
+					NetworkManager.Settings.class);
+
+			log.info("Got accessPoint.Settings '{}'", nwmAccessPointSettings);
+
+		} catch (DBusException e) {
+			log.error("Error constructing AccessPoint");
+		}
 	}
 
 	@Override
 	public void startup() throws Exception {
-		DBusConnection dbusConnection = nwmProvider.getDbusConnection();
-
-		nwmAccessPoint = (AccessPoint) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER, accessPointObjectPath,
-				AccessPoint.class);
-
-		log.debug("Got accessPoint '{}'", nwmAccessPoint);
-
-		nwmAccessPointProperties = (Properties) dbusConnection.getRemoteObject(DBUS_NETWORKMANAGER,
-				accessPointObjectPath, Properties.class);
-
-		log.debug("Got accessPoint.Properties '{}'", nwmAccessPointProperties);
 
 		propertiesChangedSignalHandler = new DBusSigHandler<Properties.PropertiesChanged>() {
 			@Override
@@ -81,8 +83,8 @@ public class NWMAccessPoint implements INWMAccessPoint {
 			}
 		};
 
-		dbusConnection.addSigHandler(Properties.PropertiesChanged.class, nwmProvider.getNWMDbusBusName(),
-				nwmAccessPointProperties, propertiesChangedSignalHandler);
+		nwmProvider.getDbusConnection().addSigHandler(Properties.PropertiesChanged.class,
+				nwmProvider.getNWMDbusBusName(), nwmAccessPointProperties, propertiesChangedSignalHandler);
 
 		log.debug("Added accessPoint sigHandler.PropertiesChanged ");
 	}
@@ -109,11 +111,26 @@ public class NWMAccessPoint implements INWMAccessPoint {
 		new Thread(run).start();
 	}
 
+	@Override
+	public String getAccessPointObjectPath() {
+		return accessPointObjectPath;
+	}
+
+	@Override
+	public NetworkManager.Settings getSettings() {
+		return nwmAccessPointSettings;
+	}
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see com.zmartify.hub.zmartbtserver.service.nwm.INWMAccessPoint#getSsid()
 	 */
+
+	@Override
+	public NetworkManager.AccessPoint getAccessPoint() {
+		return nwmAccessPoint;
+	}
+
 	@Override
 	public byte[] getSsid() {
 

@@ -44,6 +44,7 @@ public class MessageSender {
 	}
 
 	public void activate(BluetoothConnection newConnection) {
+		log.info("Bluetooth message sender activated");
 		this.connection = newConnection;
 	}
 
@@ -113,7 +114,7 @@ public class MessageSender {
 			@Override
 			public void onNext(Message messageToSend) {
 				try {
-					log.debug("Sending message: " + messageToSend);
+					log.info("Sending message: " + messageToSend);
 
 					sendMessage(messageToSend);
 
