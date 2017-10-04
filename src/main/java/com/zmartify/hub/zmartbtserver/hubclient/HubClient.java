@@ -8,10 +8,7 @@ import com.zmartify.hub.zmartbtserver.utils.VariantSerializer;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 import org.eclipse.jetty.http.HttpStatus;
 import org.freedesktop.dbus.Variant;
 import org.freedesktop.dbus.exceptions.DBusExecutionException;
@@ -87,7 +84,7 @@ public class HubClient implements IStandardClient {
 		jettyResponse.setStatusCode(errorCode);
 		jettyResponse.setStatusText(reason);
 		try {
-			subscriber.message(new Message(jsonMapper.writeValueAsBytes(jettyResponse)));
+			subscriber.message(new Message(jsonMapper.writeValueAsString(jettyResponse)));
 		} catch (JsonProcessingException e) {
 			log.error("Error serializing error message - returning null");
 		}
@@ -102,11 +99,12 @@ public class HubClient implements IStandardClient {
 			jettyResponse.setBody(jsonMapper.valueToTree(response));
 			jettyResponse.setStatusCode(statusCode);
 			jettyResponse.setStatusText(HttpStatus.getMessage(statusCode));
+			
+			Message m = new Message(jsonMapper.writeValueAsString(jettyResponse));
+			log.info("Sending message: ({})",m);
 
-			subscriber.message(new Message(jsonMapper.writeValueAsBytes(jettyResponse)));
+			subscriber.message(m);
 
-			log.info("Content received: \n{}",
-					jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jettyResponse));
 		} catch (IOException e) {
 			log.error("Error serializing content - nothing returned");
 			sendErrorMessage(jettyResponse, HttpStatus.UNSUPPORTED_MEDIA_TYPE_415);
@@ -122,13 +120,12 @@ public class HubClient implements IStandardClient {
 	 */
 	@Override
 	public void handleRequest(JettyRequest jettyRequest) {
-		log.info("HubClient got request : {}", jettyRequest.getUri().getPath());
+		log.info("HubClient got request : {} ({})", jettyRequest.getUri().getPath(), jettyRequest.getReqId());
 
 		String[] cmd = jettyRequest.getUri().getPath().split("/");
 
-		for (int i = 0; i < cmd.length; i++)
-			log.info("CMD: ({}) {}", i, cmd[i]);
 		JettyResponse response = new JettyResponse(jettyRequest);
+
 		try {
 
 			switch (cmd[1]) {

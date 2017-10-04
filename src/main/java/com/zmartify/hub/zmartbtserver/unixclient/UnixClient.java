@@ -183,7 +183,7 @@ public class UnixClient implements IStandardClient {
 			log.info("Response: \n{}\n", jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jettyResponse));
 
 			if (subscriber != null)
-				subscriber.message(new Message(jsonMapper.writeValueAsBytes(jettyResponse)));
+				subscriber.message(new Message(jsonMapper.writeValueAsString(jettyResponse)));
 
 		} catch (JsonParseException e) {
 			log.error("Message -> JSON Parse Exception");

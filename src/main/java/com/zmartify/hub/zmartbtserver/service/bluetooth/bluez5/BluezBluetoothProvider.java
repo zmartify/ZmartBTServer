@@ -29,7 +29,6 @@ import org.freedesktop.ObjectManager;
 import org.freedesktop.dbus.DBusConnection;
 import org.freedesktop.dbus.DBusInterface;
 import org.freedesktop.dbus.DBusSigHandler;
-import org.freedesktop.dbus.Path;
 import org.freedesktop.dbus.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

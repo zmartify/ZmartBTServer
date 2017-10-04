@@ -16,17 +16,13 @@ import org.freedesktop.dbus.exceptions.DBusExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zmartify.hub.zmartbtserver.service.nwm.NWMClass.NMDeviceWifiCapabilities;
 
 import static com.zmartify.hub.zmartbtserver.service.nwm.NWMConstants.*;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @author Peter Kristensen

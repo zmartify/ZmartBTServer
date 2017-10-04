@@ -90,7 +90,7 @@ public class MessageManager {
 				try {
 					request = jsonMapper.readValue(message.getPayload(), JettyRequest.class);
 
-					log.info("MM: \n{}\n", jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(request));
+					// log.info("MM: \n{}\n", jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(request));
 
 					switch (request.getUri().getHost()) {
 					case "snap": // Snap daemon

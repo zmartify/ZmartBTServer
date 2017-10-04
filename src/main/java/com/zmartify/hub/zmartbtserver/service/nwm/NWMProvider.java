@@ -534,6 +534,7 @@ public class NWMProvider implements INWMProvider {
 
 	@Override
 	public Pair<DBusInterface, DBusInterface> connectToAP(String objectPath, String password) throws Exception {
+		log.info("We got a request for new AccessPoint");
 		NWMAccessPoint accessPoint = new NWMAccessPoint(this, objectPath);
 		accessPoint.startup();
 		String ssid = accessPoint.getSsidAsString();
